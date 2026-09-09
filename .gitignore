@@ -1,0 +1,31 @@
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+*.sqlite3
+staticfiles/
+media/
+
+# --- Django secrets / local settings ---
+.env
+.env.*
+!.env.example
+
+# --- Node / React ---
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
