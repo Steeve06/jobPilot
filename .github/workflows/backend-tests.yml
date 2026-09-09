@@ -1,0 +1,71 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: jobpilot
+          POSTGRES_USER: jobpilot
+          POSTGRES_PASSWORD: ci-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Grant CREATEDB to CI database role
+        run: |
+          PGPASSWORD=ci-test-password psql -h localhost -U jobpilot -d jobpilot -c "ALTER ROLE jobpilot CREATEDB;"
+        env:
+          PGPASSWORD: ci-test-password
+
+      - name: Run migrations
+        run: python manage.py migrate
+        env:
+          DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+          DJANGO_DEBUG: 'False'
+          POSTGRES_DB: jobpilot
+          POSTGRES_USER: jobpilot
+          POSTGRES_PASSWORD: ci-test-password
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+
+      - name: Run tests
+        run: python manage.py test
+        env:
+          DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+          DJANGO_DEBUG: 'False'
+          POSTGRES_DB: jobpilot
+          POSTGRES_USER: jobpilot
+          POSTGRES_PASSWORD: ci-test-password
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432

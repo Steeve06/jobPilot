@@ -1,0 +1,64 @@
+:root {
+    /* Neutral surface scale */
+    --color-bg: #f7f8fa;
+    --color-surface: #ffffff;
+    --color-border: #e2e5ea;
+    --color-text-primary: #1a1d23;
+    --color-text-secondary: #5b6472;
+    --color-text-muted: #8b93a1;
+
+    /* Single accent, used sparingly */
+    --color-accent: #3b5bfd;
+    --color-accent-hover: #2f49d1;
+    --color-accent-subtle: #eef1ff;
+
+    /* Semantic (fit score bands, status) — never color-only, always paired with text/icon */
+    --color-success: #1c8a5e;
+    --color-success-bg: #e8f6ef;
+    --color-warning: #b8860b;
+    --color-warning-bg: #fdf3dc;
+    --color-danger: #c4432b;
+    --color-danger-bg: #fbeae6;
+
+    /* Spacing: 8px grid */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 16px;
+    --space-4: 24px;
+    --space-5: 32px;
+    --space-6: 48px;
+
+    /* Type */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', Consolas, monospace;
+    --text-xs: 12px;
+    --text-sm: 13px;
+    --text-base: 14px;
+    --text-lg: 16px;
+    --text-xl: 20px;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+
+    --sidebar-width: 220px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--color-text-primary);
+    background: var(--color-bg);
+}
+
+button,
+input {
+    font-family: inherit;
+    font-size: inherit;
+}
