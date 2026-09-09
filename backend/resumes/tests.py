@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from rest_framework.test import APITestCase
 
 from accounts.models import Profile
 from .models import Bullet, Experience, Resume
@@ -46,3 +47,42 @@ class ResumeProfileRelationTests(TestCase):
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 Resume.objects.create(profile=profile, full_name='Sam Again', email='s2@x.com')
+                
+class ResumeNestedUpdateAPITests(APITestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='alex', password='pw')
+        Profile.objects.create(user=user, name='Backend Track')
+        self.client.login(username='alex', password='pw')
+
+    def test_patch_creates_nested_experience_and_bullet(self):
+        response = self.client.patch('/api/resume/', {
+            'full_name': 'Alex Johnson',
+            'email': 'alex@gmail.com',
+            'experiences': [{
+                'company': 'Acme', 'title': 'SWE', 'start_date': '2021-01-01',
+                'bullets': [{'text': 'Did a thing', 'skill_tags': ['Go']}],
+            }],
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Experience.objects.count(), 1)
+        self.assertEqual(Bullet.objects.count(), 1)
+
+    def test_second_patch_without_bullet_deletes_it(self):
+        first = self.client.patch('/api/resume/', {
+            'experiences': [{
+                'company': 'Acme', 'title': 'SWE', 'start_date': '2021-01-01',
+                'bullets': [{'text': 'Did a thing', 'skill_tags': ['Go']}],
+            }],
+        }, format='json')
+        experience_id = first.data['experiences'][0]['id']
+
+        self.client.patch('/api/resume/', {
+            'experiences': [{
+                'id': experience_id, 'company': 'Acme', 'title': 'Staff SWE',
+                'start_date': '2021-01-01', 'bullets': [],
+            }],
+        }, format='json')
+
+        self.assertEqual(Experience.objects.count(), 1)
+        self.assertEqual(Experience.objects.first().title, 'Staff SWE')
+        self.assertEqual(Bullet.objects.count(), 0)
