@@ -1,8 +1,10 @@
 from rest_framework import viewsets
 from accounts.services import get_active_profile
-from .models import JobPosting
+from .models import JobPosting, PostingDecision
 from .serializers import JobPostingSerializer
 from datetime import timedelta
+from django.db.models import OuterRef, Subquery
+from rest_framework.decorators import action
 
 from django.db.models import Avg, Count
 from django.utils import timezone
@@ -17,7 +19,14 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         active_profile = get_active_profile(self.request)
-        queryset = JobPosting.objects.filter(source__profile=active_profile)
+
+        decision_subquery = PostingDecision.objects.filter(
+            posting=OuterRef('pk'), profile=active_profile,
+        ).values('decision')[:1]
+
+        queryset = JobPosting.objects.filter(
+            source__profile=active_profile,
+        ).annotate(decision_value=Subquery(decision_subquery))
 
         source_id = self.request.query_params.get('source')
         if source_id:
@@ -27,8 +36,32 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
         if min_score:
             queryset = queryset.filter(fit_score__gte=min_score)
 
+        status_param = self.request.query_params.get('status')
+        if status_param == 'saved':
+            queryset = queryset.filter(decision_value='saved')
+        elif status_param == 'skipped':
+            queryset = queryset.filter(decision_value='skipped')
+        elif status_param == 'new':
+            queryset = queryset.filter(decision_value__isnull=True)
+
+        ordering = self.request.query_params.get('ordering', '-discovered_at')
+        if ordering in ('-discovered_at', '-fit_score', 'fit_score'):
+            queryset = queryset.order_by(ordering)
+
         return queryset
-    
+
+    @action(detail=True, methods=['post'])
+    def decide(self, request, pk=None):
+        posting = self.get_object()
+        decision = request.data.get('decision')
+        if decision not in ('saved', 'skipped'):
+            return Response({'detail': 'decision must be "saved" or "skipped"'}, status=400)
+        active_profile = get_active_profile(request)
+        PostingDecision.objects.update_or_create(
+            posting=posting, profile=active_profile,
+            defaults={'decision': decision},
+        )
+        return Response({'detail': f'Marked as {decision}'})    
 class DashboardSummaryView(APIView):
     def get(self, request):
         active_profile = get_active_profile(request)

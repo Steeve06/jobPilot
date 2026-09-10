@@ -56,3 +56,21 @@ class ScoringLog(models.Model):
 
     def __str__(self):
         return f'ScoringLog for {self.posting} @ {self.created_at}'
+    
+class PostingDecision(models.Model):
+    class Decision(models.TextChoices):
+        SAVED = 'saved', 'Saved'
+        SKIPPED = 'skipped', 'Skipped'
+
+    posting = models.ForeignKey(JobPosting, on_delete=models.CASCADE, related_name='decisions')
+    profile = models.ForeignKey('accounts.Profile', on_delete=models.CASCADE, related_name='posting_decisions')
+    decision = models.CharField(max_length=10, choices=Decision.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['posting', 'profile'], name='one_decision_per_profile_per_posting'),
+        ]
+
+    def __str__(self):
+        return f'{self.profile} {self.decision} {self.posting}'
