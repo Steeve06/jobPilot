@@ -33,20 +33,28 @@ class ApplicationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-    def update(self, instance, validated_data):
-        # posting is write-once: strip it out on any update, regardless of what was sent
-        validated_data.pop('posting', None)
-        return super().update(instance, validated_data)
-    
     def validate_posting(self, posting):
-        # Only enforce on create — posting is write-once, so on update
-        # this field is stripped in update() before it matters.
         if self.instance is not None:
             return posting
-
         request = self.context['request']
         from accounts.services import get_active_profile
         active_profile = get_active_profile(request)
         if posting.source.profile_id != active_profile.id:
             raise serializers.ValidationError('This posting does not belong to your active profile.')
         return posting
+
+    def update(self, instance, validated_data):
+        validated_data.pop('posting', None)
+        new_status = validated_data.get('status')
+        status_changed = new_status is not None and new_status != instance.status
+
+        instance = super().update(instance, validated_data)
+
+        if status_changed:
+            StatusEvent.objects.create(
+                application=instance,
+                status=new_status,
+                source=StatusEvent.Source.MANUAL,
+                confirmed=True,
+            )
+        return instance

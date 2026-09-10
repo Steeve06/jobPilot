@@ -1,0 +1,132 @@
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 24, 40, 0.4);
+    display: flex;
+    justify-content: flex-end;
+    z-index: 100;
+}
+
+.drawer {
+    width: 420px;
+    max-width: 100%;
+    background: var(--color-surface);
+    height: 100%;
+    overflow-y: auto;
+    padding: var(--space-4);
+    box-shadow: var(--shadow-md);
+}
+
+.drawer__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-4);
+}
+
+.drawer__header button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+    color: var(--color-text-muted);
+}
+
+.drawer__section {
+    margin-bottom: var(--space-4);
+}
+
+.drawer__section label,
+.drawer__section h4 {
+    display: block;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+    font-weight: 600;
+}
+
+.drawer__section select,
+.drawer__section input {
+    width: 100%;
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.drawer__muted {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+}
+
+.drawer__timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-left: 2px solid var(--color-border);
+}
+
+.drawer__timeline li {
+    padding: var(--space-1) 0 var(--space-1) var(--space-3);
+    position: relative;
+    font-size: var(--text-sm);
+}
+
+.drawer__timeline li::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-accent);
+}
+
+.drawer__timeline-status {
+    text-transform: capitalize;
+    font-weight: 500;
+    display: block;
+}
+
+.drawer__timeline-date {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+}
+
+.drawer__notes {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-2);
+}
+
+.drawer__notes li {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+}
+
+.drawer__note-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.drawer__note-form textarea {
+    width: 100%;
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+}
+
+.drawer__note-form button {
+    align-self: flex-end;
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}

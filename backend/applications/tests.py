@@ -86,3 +86,83 @@ class ApplicationScopingTests(TwoProfileTestCase):
         posting_ids = [row['posting'] for row in response.data]
         self.assertIn(self.posting_a.id, posting_ids)
         self.assertNotIn(self.posting_b.id, posting_ids)
+
+class StatusEventAutoCreationTests(TwoProfileTestCase):
+    def setUp(self):
+        super().setUp()
+        source = JobSource.objects.create(
+            profile=self.profile_a, company_name='Stripe', type=JobSource.SourceType.GREENHOUSE,
+        )
+        posting = JobPosting.objects.create(
+            source=source, company='Stripe', title='Backend Engineer',
+            url='https://stripe.com/1', dedupe_hash='se-1',
+        )
+        self.application = Application.objects.create(posting=posting)
+
+    def test_status_change_creates_status_event(self):
+        self.client.patch(
+            f'/api/applications/{self.application.id}/', {'status': 'tailoring'}, format='json',
+        )
+        events = StatusEvent.objects.filter(application=self.application)
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(events.first().status, 'tailoring')
+        self.assertEqual(events.first().source, StatusEvent.Source.MANUAL)
+        self.assertTrue(events.first().confirmed)
+
+    def test_updating_non_status_field_does_not_create_status_event(self):
+        self.client.patch(
+            f'/api/applications/{self.application.id}/',
+            {'next_action_date': '2026-09-20'}, format='json',
+        )
+        self.assertEqual(StatusEvent.objects.filter(application=self.application).count(), 0)
+
+    def test_setting_same_status_again_does_not_duplicate_event(self):
+        self.client.patch(
+            f'/api/applications/{self.application.id}/', {'status': 'discovered'}, format='json',
+        )
+        self.assertEqual(StatusEvent.objects.filter(application=self.application).count(), 0)
+
+    def test_multiple_status_changes_create_multiple_ordered_events(self):
+        self.client.patch(f'/api/applications/{self.application.id}/', {'status': 'tailoring'}, format='json')
+        self.client.patch(f'/api/applications/{self.application.id}/', {'status': 'ready'}, format='json')
+        events = list(StatusEvent.objects.filter(application=self.application).order_by('occurred_at'))
+        self.assertEqual([e.status for e in events], ['tailoring', 'ready'])
+
+
+class NoteScopingTests(TwoProfileTestCase):
+    def setUp(self):
+        super().setUp()
+        source_a = JobSource.objects.create(
+            profile=self.profile_a, company_name='Stripe', type=JobSource.SourceType.GREENHOUSE,
+        )
+        source_b = JobSource.objects.create(
+            profile=self.profile_b, company_name='Notion', type=JobSource.SourceType.LEVER,
+        )
+        posting_a = JobPosting.objects.create(
+            source=source_a, company='Stripe', title='Backend Engineer',
+            url='https://stripe.com/1', dedupe_hash='note-a1',
+        )
+        posting_b = JobPosting.objects.create(
+            source=source_b, company='Notion', title='Platform Engineer',
+            url='https://notion.com/1', dedupe_hash='note-b1',
+        )
+        self.app_a = Application.objects.create(posting=posting_a)
+        self.app_b = Application.objects.create(posting=posting_b)
+
+    def test_can_add_note_to_own_application(self):
+        response = self.client.post(
+            f'/api/applications/{self.app_a.id}/notes/', {'text': 'Recruiter call scheduled'}, format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_cannot_add_note_to_another_profiles_application(self):
+        response = self.client.post(
+            f'/api/applications/{self.app_b.id}/notes/', {'text': 'Should not work'}, format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_empty_note_text_rejected(self):
+        response = self.client.post(
+            f'/api/applications/{self.app_a.id}/notes/', {'text': '   '}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
