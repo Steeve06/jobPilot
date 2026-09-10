@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'postings',
     'applications',
     'ai',
+    'ingestion',
 ]
 
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
