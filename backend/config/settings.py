@@ -34,7 +34,11 @@ INSTALLED_APPS = [
     'job_sources',
     'postings',
     'applications',
+    'ai',
 ]
+
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
+AI_MODEL = 'claude-sonnet-4-5'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

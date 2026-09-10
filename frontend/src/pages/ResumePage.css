@@ -1,0 +1,149 @@
+.resume-page {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+}
+
+.resume-page__editor {
+    flex: 0 0 30%;
+    min-width: 320px;
+}
+
+.resume-page__preview {
+    flex: 1;
+    min-width: 0;
+}
+
+.resume-page__toolbar {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.import-button,
+.save-button {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    background: var(--color-surface);
+}
+
+.save-button {
+    background: var(--color-accent);
+    color: white;
+    border: none;
+}
+
+.resume-page__error {
+    color: var(--color-danger);
+    font-size: var(--text-sm);
+}
+
+.resume-page__success {
+    color: var(--color-success);
+    font-size: var(--text-sm);
+}
+
+.accordion-section {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.accordion-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    background: none;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: var(--text-base);
+}
+
+.accordion-content {
+    padding-bottom: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.accordion-content input,
+.accordion-content textarea {
+    width: 100%;
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-bottom: var(--space-1);
+}
+
+.chip {
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: var(--text-xs);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chip button {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.chip-input-row {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.repeater-entry {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    margin-bottom: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.repeater-entry__row {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.bullet-row {
+    display: flex;
+    gap: var(--space-1);
+    align-items: flex-start;
+}
+
+.bullet-row textarea {
+    flex: 1;
+}
+
+.add-button,
+.remove-button {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: var(--color-accent);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    padding: var(--space-1) 0;
+}
+
+.remove-button {
+    color: var(--color-danger);
+}

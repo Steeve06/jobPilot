@@ -86,3 +86,30 @@ class ResumeNestedUpdateAPITests(APITestCase):
         self.assertEqual(Experience.objects.count(), 1)
         self.assertEqual(Experience.objects.first().title, 'Staff SWE')
         self.assertEqual(Bullet.objects.count(), 0)
+        
+class ResumeUrlNormalizationAPITests(APITestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='alex', password='pw')
+        Profile.objects.create(user=user, name='Backend Track')
+        self.client.login(username='alex', password='pw')
+
+    def test_bare_domain_gets_https_prefix(self):
+        response = self.client.patch('/api/resume/', {
+            'linkedin_url': 'linkedin.com/in/alexj',
+            'github_url': 'github.com/alexj',
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['linkedin_url'], 'https://linkedin.com/in/alexj')
+        self.assertEqual(response.data['github_url'], 'https://github.com/alexj')
+
+    def test_url_with_scheme_already_present_is_unchanged(self):
+        response = self.client.patch('/api/resume/', {
+            'linkedin_url': 'https://linkedin.com/in/alexj',
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['linkedin_url'], 'https://linkedin.com/in/alexj')
+
+    def test_empty_url_stays_empty(self):
+        response = self.client.patch('/api/resume/', {'linkedin_url': ''}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['linkedin_url'], '')

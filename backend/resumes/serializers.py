@@ -1,3 +1,4 @@
+from django.core.validators import URLValidator
 from rest_framework import serializers
 
 from .models import Bullet, Experience, Project, Resume
@@ -29,6 +30,14 @@ class ResumeSerializer(serializers.ModelSerializer):
     experiences = ExperienceSerializer(many=True)
     projects = ProjectSerializer(many=True)
 
+    # Declared explicitly as CharField (not the auto-generated URLField)
+    # so we can normalize a bare domain into a full URL *before* format
+    # validation runs, rather than after — ModelSerializer's default
+    # URLField validates format in to_internal_value(), which happens
+    # before validate_<field>() is ever called, too late to fix it there.
+    linkedin_url = serializers.CharField(required=False, allow_blank=True)
+    github_url = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = Resume
         fields = [
@@ -38,11 +47,24 @@ class ResumeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'updated_at']
 
+    def validate_linkedin_url(self, value):
+        return self._normalize_and_validate_url(value)
+
+    def validate_github_url(self, value):
+        return self._normalize_and_validate_url(value)
+
+    def _normalize_and_validate_url(self, value):
+        if not value:
+            return value
+        if not value.startswith(('http://', 'https://')):
+            value = f'https://{value}'
+        URLValidator()(value)  # raises DRF-compatible ValidationError if still malformed
+        return value
+
     def update(self, instance, validated_data):
         experiences_data = validated_data.pop('experiences', None)
         projects_data = validated_data.pop('projects', None)
 
-        # Update Resume's own flat fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -59,7 +81,6 @@ class ResumeSerializer(serializers.ModelSerializer):
         existing_ids = set(manager.values_list('id', flat=True))
         sent_ids = {item['id'] for item in items_data if 'id' in item}
 
-        # Delete anything that existed but wasn't sent back
         manager.filter(id__in=existing_ids - sent_ids).delete()
 
         for item_data in items_data:
@@ -81,7 +102,6 @@ class ResumeSerializer(serializers.ModelSerializer):
         sent_ids = {b['id'] for b in bullets_data if 'id' in b}
         parent.bullets.filter(id__in=existing_ids - sent_ids).delete()
 
-        # Determine which FK field to set based on parent type
         fk_field = 'experience' if isinstance(parent, Experience) else 'project'
 
         for bullet_data in bullets_data:
