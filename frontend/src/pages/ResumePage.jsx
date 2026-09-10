@@ -32,6 +32,20 @@ export default function ResumePage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
 
+  async function handleExport() {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+    const response = await fetch(`${API_BASE_URL}/api/resume/export/`, {
+      credentials: 'include',
+    });
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${formData.full_name || 'resume'}_resume.docx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
   async function handleImport(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -67,6 +81,9 @@ export default function ResumePage() {
           </label>
           <button onClick={handleSave} disabled={saveResume.isPending} className="save-button">
             {saveResume.isPending ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={handleExport} className="export-button">
+            Export
           </button>
         </div>
         {importError && <p className="resume-page__error">{importError}</p>}

@@ -1,12 +1,14 @@
+from config.test_utils import TwoProfileTestCase
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from rest_framework.test import APITestCase
-
+from postings.models import JobPosting
+from job_sources.models import JobSource
 from accounts.models import Profile
-from .models import Bullet, Experience, Resume
-
+from .models import Bullet, Experience, Resume, TailoredResume
+from .docx_renderer import render_resume_to_docx
 
 class BulletConstraintTests(TestCase):
     def setUp(self):
@@ -113,3 +115,80 @@ class ResumeUrlNormalizationAPITests(APITestCase):
         response = self.client.patch('/api/resume/', {'linkedin_url': ''}, format='json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['linkedin_url'], '')
+        
+class DocxRendererTests(TestCase):
+    def test_renders_minimal_data_without_error(self):
+        buffer = render_resume_to_docx({'full_name': 'Alex Johnson', 'email': 'alex@x.com'})
+        self.assertGreater(len(buffer.getvalue()), 0)
+
+    def test_renders_full_data_without_error(self):
+        data = {
+            'full_name': 'Alex Johnson', 'email': 'alex@x.com', 'phone': '555-1234',
+            'location': 'SF, CA', 'linkedin_url': 'https://linkedin.com/in/alexj',
+            'summary': 'Experienced engineer.',
+            'skills': ['Go', 'PostgreSQL'],
+            'experiences': [{
+                'company': 'Acme', 'title': 'SWE', 'start_date': '2021-01-01', 'end_date': None,
+                'bullets': [{'text': 'Did a thing'}],
+            }],
+            'projects': [{'name': 'Side Project', 'bullets': [{'text': 'Built a thing'}]}],
+            'education': [{'degree': 'B.S. CS', 'school': 'State University'}],
+        }
+        buffer = render_resume_to_docx(data)
+        self.assertGreater(len(buffer.getvalue()), 0)
+
+    def test_renders_empty_data_without_error(self):
+        # An empty/near-empty resume (e.g. brand new profile) shouldn't crash the renderer
+        buffer = render_resume_to_docx({})
+        self.assertGreater(len(buffer.getvalue()), 0)
+
+
+class ResumeExportAPITests(APITestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='alex', password='pw')
+        Profile.objects.create(user=user, name='Backend Track')
+        self.client.login(username='alex', password='pw')
+
+    def test_export_returns_docx_file(self):
+        response = self.client.get('/api/resume/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        self.assertIn('attachment', response['Content-Disposition'])
+
+    def test_export_requires_authentication(self):
+        self.client.logout()
+        response = self.client.get('/api/resume/export/')
+        self.assertEqual(response.status_code, 403)  # IsAuthenticated default
+
+
+class TailoredResumeDownloadScopingTests(TwoProfileTestCase):
+    def setUp(self):
+        super().setUp()
+        source = JobSource.objects.create(
+            profile=self.profile_a, company_name='Stripe', type=JobSource.SourceType.GREENHOUSE,
+        )
+        posting = JobPosting.objects.create(
+            source=source, company='Stripe', title='Backend Engineer',
+            url='https://stripe.com/1', dedupe_hash='dl-1',
+        )
+        resume = Resume.objects.create(profile=self.profile_a, full_name='Alex', email='a@x.com')
+        self.tailored = TailoredResume.objects.create(
+            resume=resume, posting=posting, content={'full_name': 'Alex Johnson'},
+        )
+
+    def test_owner_can_download(self):
+        response = self.client.get(f'/api/tailored-resumes/{self.tailored.id}/download/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_other_profile_gets_404(self):
+        self.client.logout()
+        self.client.login(username='sam', password='pw')
+        response = self.client.get(f'/api/tailored-resumes/{self.tailored.id}/download/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_nonexistent_id_returns_404_not_500(self):
+        response = self.client.get('/api/tailored-resumes/99999/download/')
+        self.assertEqual(response.status_code, 404)

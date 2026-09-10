@@ -3,11 +3,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.services import get_active_profile
-from .models import Resume
+from .models import Resume, TailoredResume
 from .serializers import ResumeSerializer
 from rest_framework.parsers import MultiPartParser
 from ai.service import AIServiceError, extract_resume
-
+from django.http import FileResponse
+from .docx_renderer import render_resume_to_docx
+from django.shortcuts import get_object_or_404
 
 class ResumeDetailView(APIView):
     def get_object(self, request):
@@ -66,3 +68,34 @@ class ResumeImportView(APIView):
             reader = pypdf.PdfReader(uploaded_file)
             return '\n'.join(page.extract_text() or '' for page in reader.pages)
         return ''
+    
+class ResumeExportView(APIView):
+    def get(self, request):
+        profile = get_active_profile(request)
+        resume, _ = Resume.objects.get_or_create(
+            profile=profile, defaults={'full_name': '', 'email': ''},
+        )
+        data = ResumeSerializer(resume).data
+        buffer = render_resume_to_docx(data)
+
+        filename = f"{(data.get('full_name') or 'resume').replace(' ', '_')}_resume.docx"
+        return FileResponse(
+            buffer, as_attachment=True, filename=filename,
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        
+class TailoredResumeDownloadView(APIView):
+    def get(self, request, pk):
+        active_profile = get_active_profile(request)
+        tailored_resume = get_object_or_404(
+            TailoredResume.objects.filter(resume__profile=active_profile),
+            pk=pk,
+        )
+        buffer = render_resume_to_docx(tailored_resume.content)
+
+        company = tailored_resume.posting.company.replace(' ', '_')
+        filename = f'tailored_resume_{company}_v{tailored_resume.version_number}.docx'
+        return FileResponse(
+            buffer, as_attachment=True, filename=filename,
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
