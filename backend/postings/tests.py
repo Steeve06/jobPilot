@@ -102,27 +102,44 @@ class TailorEndpointTests(TestCase):
         self.client.login(username='alex', password='pw')
 
     @patch('postings.views.tailor_resume')
-    def test_tailor_creates_application_and_advances_status(self, mock_tailor):
+    def test_tailor_creates_draft_without_creating_application(self, mock_tailor):
         mock_tailor.return_value = {
             'content': {'full_name': 'Alex', 'experiences': [], 'projects': []},
             '_input_payload': {}, '_output_payload': {}, '_latency_ms': 100,
         }
         response = self.client.post(f'/api/postings/{self.posting.id}/tailor/')
         self.assertEqual(response.status_code, 201)
-
-        application = Application.objects.get(posting=self.posting)
-        self.assertEqual(application.status, 'tailoring')
-        self.assertIsNotNone(application.tailored_resume)
+        self.assertFalse(Application.objects.filter(posting=self.posting).exists())
 
     @patch('postings.views.tailor_resume')
-    def test_tailoring_again_does_not_regress_status_from_ready(self, mock_tailor):
+    def test_accept_creates_application_and_advances_status(self, mock_tailor):
         mock_tailor.return_value = {
             'content': {'full_name': 'Alex', 'experiences': [], 'projects': []},
             '_input_payload': {}, '_output_payload': {}, '_latency_ms': 100,
         }
-        application = Application.objects.create(posting=self.posting, status='ready')
-        self.client.post(f'/api/postings/{self.posting.id}/tailor/')
-        application.refresh_from_db()
+        tailor_response = self.client.post(f'/api/postings/{self.posting.id}/tailor/')
+        tailored_resume_id = tailor_response.data['tailored_resume_id']
+
+        accept_response = self.client.post(f'/api/tailored-resumes/{tailored_resume_id}/accept/')
+        self.assertEqual(accept_response.status_code, 200)
+
+        application = Application.objects.get(posting=self.posting)
+        self.assertEqual(application.status, 'tailoring')
+        self.assertEqual(application.tailored_resume_id, tailored_resume_id)
+
+    @patch('postings.views.tailor_resume')
+    def test_accepting_again_does_not_regress_status_from_ready(self, mock_tailor):
+        mock_tailor.return_value = {
+            'content': {'full_name': 'Alex', 'experiences': [], 'projects': []},
+            '_input_payload': {}, '_output_payload': {}, '_latency_ms': 100,
+        }
+        Application.objects.create(posting=self.posting, status='ready')
+        tailor_response = self.client.post(f'/api/postings/{self.posting.id}/tailor/')
+        tailored_resume_id = tailor_response.data['tailored_resume_id']
+
+        self.client.post(f'/api/tailored-resumes/{tailored_resume_id}/accept/')
+
+        application = Application.objects.get(posting=self.posting)
         self.assertEqual(application.status, 'ready')  # unchanged, only advances from discovered
 
     def test_tailor_without_resume_returns_400(self):

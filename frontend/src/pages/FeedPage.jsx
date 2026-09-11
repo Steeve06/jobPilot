@@ -1,12 +1,42 @@
 import { useState } from 'react';
 import JobCard from '../features/feed/JobCard';
 import { usePostings, useDashboardSummary } from '../features/feed/usePostings';
+import { useResume } from '../features/resume/useResume';
+import { useGenerateTailoredResume, useAcceptTailoredResume } from '../features/tailoring/useTailoring';
+import TailoringReviewModal from '../features/tailoring/TailoringReviewModal';
 import './FeedPage.css';
 
 export default function FeedPage() {
   const [filters, setFilters] = useState({ status: 'new', ordering: '-fit_score' });
   const { data: postings, isLoading, isError } = usePostings(filters);
   const { data: summary } = useDashboardSummary();
+  const { data: baseResume } = useResume();
+
+  const [reviewState, setReviewState] = useState(null); // { posting, tailoredResumeId, content } | null
+  const generate = useGenerateTailoredResume();
+  const accept = useAcceptTailoredResume();
+
+  function handleTailor(posting) {
+    generate.mutate(posting.id, {
+      onSuccess: (data) => {
+        setReviewState({ posting, tailoredResumeId: data.tailored_resume_id, content: data.content });
+      },
+    });
+  }
+
+  function handleRegenerate() {
+    generate.mutate(reviewState.posting.id, {
+      onSuccess: (data) => {
+        setReviewState((prev) => ({ ...prev, tailoredResumeId: data.tailored_resume_id, content: data.content }));
+      },
+    });
+  }
+
+  function handleAccept() {
+    accept.mutate(reviewState.tailoredResumeId, {
+      onSuccess: () => setReviewState(null),
+    });
+  }
 
   return (
     <div className="feed-page">
@@ -38,7 +68,7 @@ export default function FeedPage() {
         )}
 
         {postings?.map((posting) => (
-          <JobCard key={posting.id} posting={posting} />
+          <JobCard key={posting.id} posting={posting} onTailor={handleTailor} />
         ))}
       </div>
 
@@ -51,6 +81,19 @@ export default function FeedPage() {
             <dt>Avg fit score</dt><dd>{summary.avg_fit_score ?? '—'}</dd>
           </dl>
         </aside>
+      )}
+
+      {reviewState && baseResume && (
+        <TailoringReviewModal
+          posting={reviewState.posting}
+          baseResume={baseResume}
+          tailoredContent={reviewState.content}
+          onRegenerate={handleRegenerate}
+          onAccept={handleAccept}
+          onClose={() => setReviewState(null)}
+          isRegenerating={generate.isPending}
+          isAccepting={accept.isPending}
+        />
       )}
     </div>
   );

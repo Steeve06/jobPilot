@@ -1,7 +1,7 @@
 from django.core.validators import URLValidator
 from rest_framework import serializers
 
-from .models import Bullet, Experience, Project, Resume
+from .models import Bullet, Experience, Project, Resume, TailoringSettings
 
 
 class BulletSerializer(serializers.ModelSerializer):
@@ -113,3 +113,11 @@ class ResumeSerializer(serializers.ModelSerializer):
                 bullet.save()
             else:
                 Bullet.objects.create(**{fk_field: parent}, **bullet_data)
+                
+class TailoringSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TailoringSettings
+        fields = [
+            'professional_title', 'style_notes', 'max_bullets_per_experience',
+            'max_bullets_per_project', 'avoid_em_dash', 'exclude_company_name_from_body',
+        ]

@@ -1,15 +1,31 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from applications.models import Application, StatusEvent
 from accounts.services import get_active_profile
-from .models import Resume, TailoredResume
-from .serializers import ResumeSerializer
+from .models import Resume, TailoredResume, TailoringSettings
+from .serializers import ResumeSerializer, TailoringSettingsSerializer
 from rest_framework.parsers import MultiPartParser
 from ai.service import AIServiceError, extract_resume
 from django.http import FileResponse
 from .docx_renderer import render_resume_to_docx
 from django.shortcuts import get_object_or_404
+
+class TailoringSettingsView(APIView):
+    def get_object(self, request):
+        profile = get_active_profile(request)
+        settings_obj, _ = TailoringSettings.objects.get_or_create(profile=profile)
+        return settings_obj
+
+    def get(self, request):
+        return Response(TailoringSettingsSerializer(self.get_object(request)).data)
+
+    def patch(self, request):
+        obj = self.get_object(request)
+        serializer = TailoringSettingsSerializer(obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 class ResumeDetailView(APIView):
     def get_object(self, request):
@@ -99,3 +115,26 @@ class TailoredResumeDownloadView(APIView):
             buffer, as_attachment=True, filename=filename,
             content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         )
+        
+class TailoredResumeAcceptView(APIView):
+    def post(self, request, pk):
+        active_profile = get_active_profile(request)
+        tailored_resume = get_object_or_404(
+            TailoredResume.objects.filter(resume__profile=active_profile), pk=pk,
+        )
+        tailored_resume.accepted = True
+        tailored_resume.save(update_fields=['accepted'])
+
+        application, _ = Application.objects.get_or_create(posting=tailored_resume.posting)
+        application.tailored_resume = tailored_resume
+        if application.status == Application.Status.DISCOVERED:
+            application.status = Application.Status.TAILORING
+            application.save(update_fields=['tailored_resume', 'status'])
+            StatusEvent.objects.create(
+                application=application, status=Application.Status.TAILORING,
+                source=StatusEvent.Source.MANUAL, confirmed=True,
+            )
+        else:
+            application.save(update_fields=['tailored_resume'])
+
+        return Response({'application_id': application.id, 'application_status': application.status})

@@ -1,6 +1,6 @@
 from django.conf import settings
 from datetime import timedelta
-
+from resumes.models import TailoringSettings
 from django.db.models import Avg, Count, F, OuterRef, Subquery
 from django.utils import timezone
 from rest_framework import viewsets
@@ -66,8 +66,9 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
                 {'detail': 'Build a resume before tailoring (Resume Editor).'}, status=400,
             )
 
+        tailoring_settings = TailoringSettings.objects.filter(profile=active_profile).first()
         try:
-            result = tailor_resume(active_profile, resume, posting)
+            result = tailor_resume(active_profile, resume, posting, tailoring_settings)
         except AIServiceError as exc:
             return Response({'detail': str(exc)}, status=502)
 
@@ -75,6 +76,7 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
             resume=resume, posting=posting, content=result['content'],
             model_version=settings.AI_MODEL,
             version_number=TailoredResume.objects.filter(posting=posting).count() + 1,
+            accepted=False,
         )
         TailoringLog.objects.create(
             tailored_resume=tailored_resume,
@@ -82,22 +84,9 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
             model_version=settings.AI_MODEL, latency_ms=result['_latency_ms'],
         )
 
-        application, _ = Application.objects.get_or_create(posting=posting)
-        application.tailored_resume = tailored_resume
-        if application.status == Application.Status.DISCOVERED:
-            application.status = Application.Status.TAILORING
-            application.save(update_fields=['tailored_resume', 'status'])
-            StatusEvent.objects.create(
-                application=application, status=Application.Status.TAILORING,
-                source=StatusEvent.Source.MANUAL, confirmed=True,
-            )
-        else:
-            application.save(update_fields=['tailored_resume'])
-
         return Response({
             'tailored_resume_id': tailored_resume.id,
-            'application_id': application.id,
-            'application_status': application.status,
+            'content': tailored_resume.content,
         }, status=201)
         
     @action(detail=True, methods=['post'])

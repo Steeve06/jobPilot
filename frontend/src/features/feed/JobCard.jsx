@@ -1,10 +1,9 @@
 import FitScoreBadge from './FitScoreBadge';
-import { useDecidePosting, useTailorPosting } from './usePostings';
+import { useDecidePosting } from './usePostings';
 import './JobCard.css';
 
-export default function JobCard({ posting }) {
+export default function JobCard({ posting, onTailor }) {
   const decide = useDecidePosting();
-  const tailor = useTailorPosting();
 
   return (
     <article className="job-card">
@@ -32,9 +31,7 @@ export default function JobCard({ posting }) {
           <span className="badge">{posting.source_type}</span>
 
           <div className="job-card__actions">
-            <button onClick={() => tailor.mutate(posting.id)} disabled={tailor.isPending}>
-              {tailor.isPending ? 'Tailoring…' : tailor.isSuccess ? 'Tailored ✓' : 'Tailor Resume'}
-            </button>
+            <button onClick={() => onTailor(posting)}>Tailor Resume</button>
             <button
               onClick={() => decide.mutate({ postingId: posting.id, decision: 'saved' })}
               disabled={posting.decision === 'saved'}
@@ -49,9 +46,6 @@ export default function JobCard({ posting }) {
             </button>
           </div>
         </div>
-        {tailor.isError && (
-          <p className="job-card__error">{tailor.error.message}</p>
-        )}
       </div>
 
       <FitScoreBadge score={posting.fit_score} />

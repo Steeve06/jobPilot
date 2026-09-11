@@ -100,6 +100,7 @@ class TailoredResume(models.Model):
     model_version = models.CharField(max_length=100, blank=True)
     version_number = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
+    accepted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
@@ -126,3 +127,15 @@ class TailoringLog(models.Model):
 
     def __str__(self):
         return f'TailoringLog for {self.tailored_resume}'
+    
+class TailoringSettings(models.Model):
+    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='tailoring_settings')
+    professional_title = models.CharField(max_length=200, blank=True)  # fixed title, overrides JD-mirrored titles
+    style_notes = models.TextField(blank=True)  # free-text guidance, e.g. "no em dashes, no company name"
+    max_bullets_per_experience = models.PositiveIntegerField(null=True, blank=True)
+    max_bullets_per_project = models.PositiveIntegerField(null=True, blank=True)
+    avoid_em_dash = models.BooleanField(default=True)
+    exclude_company_name_from_body = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f'TailoringSettings for {self.profile}'
