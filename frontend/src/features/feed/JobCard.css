@@ -75,6 +75,12 @@
     cursor: default;
 }
 
+.job-card__error {
+    color: var(--color-danger);
+    font-size: var(--text-xs);
+    margin-top: var(--space-1);
+}
+
 .badge {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);

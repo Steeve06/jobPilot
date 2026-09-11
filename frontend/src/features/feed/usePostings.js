@@ -35,3 +35,14 @@ export function useDashboardSummary() {
     queryFn: () => apiRequest('/api/dashboard/summary/'),
   });
 }
+
+export function useTailorPosting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (postingId) =>
+      apiRequest(`/api/postings/${postingId}/tailor/`, { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+    },
+  });
+}

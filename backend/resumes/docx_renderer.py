@@ -86,7 +86,7 @@ def _tighten(paragraph, space_before=0, space_after=4):
 def _add_section_heading(doc, text):
     heading = doc.add_heading(text, level=2)
     heading.style.font.size = Pt(12)
-    _tighten(heading, space_before=8, space_after=3)
+    _tighten(heading, space_before=6, space_after=2)
 
 
 def _add_experience_entry(doc, exp):

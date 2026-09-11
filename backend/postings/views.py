@@ -1,3 +1,4 @@
+from django.conf import settings
 from datetime import timedelta
 
 from django.db.models import Avg, Count, F, OuterRef, Subquery
@@ -8,11 +9,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.services import get_active_profile
-from applications.models import Application
+from applications.models import Application, StatusEvent
 from .models import JobPosting, PostingDecision
 from .serializers import JobPostingSerializer
-
-
+from resumes.models import Resume, TailoredResume, TailoringLog
+from ai.service import AIServiceError, tailor_resume
 class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = JobPostingSerializer
 
@@ -52,7 +53,53 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.order_by(ordering)
 
         return queryset
+    
+    @action(detail=True, methods=['post'])
+    def tailor(self, request, pk=None):
+        posting = self.get_object()
+        active_profile = get_active_profile(request)
 
+        try:
+            resume = active_profile.resume
+        except Resume.DoesNotExist:
+            return Response(
+                {'detail': 'Build a resume before tailoring (Resume Editor).'}, status=400,
+            )
+
+        try:
+            result = tailor_resume(active_profile, resume, posting)
+        except AIServiceError as exc:
+            return Response({'detail': str(exc)}, status=502)
+
+        tailored_resume = TailoredResume.objects.create(
+            resume=resume, posting=posting, content=result['content'],
+            model_version=settings.AI_MODEL,
+            version_number=TailoredResume.objects.filter(posting=posting).count() + 1,
+        )
+        TailoringLog.objects.create(
+            tailored_resume=tailored_resume,
+            input_payload=result['_input_payload'], output_payload=result['_output_payload'],
+            model_version=settings.AI_MODEL, latency_ms=result['_latency_ms'],
+        )
+
+        application, _ = Application.objects.get_or_create(posting=posting)
+        application.tailored_resume = tailored_resume
+        if application.status == Application.Status.DISCOVERED:
+            application.status = Application.Status.TAILORING
+            application.save(update_fields=['tailored_resume', 'status'])
+            StatusEvent.objects.create(
+                application=application, status=Application.Status.TAILORING,
+                source=StatusEvent.Source.MANUAL, confirmed=True,
+            )
+        else:
+            application.save(update_fields=['tailored_resume'])
+
+        return Response({
+            'tailored_resume_id': tailored_resume.id,
+            'application_id': application.id,
+            'application_status': application.status,
+        }, status=201)
+        
     @action(detail=True, methods=['post'])
     def decide(self, request, pk=None):
         posting = self.get_object()

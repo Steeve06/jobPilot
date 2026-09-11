@@ -33,6 +33,25 @@ export default function ApplicationDrawer({ application, onClose }) {
     );
   }
 
+  async function handleDownloadTailoredResume() {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+    const response = await fetch(
+      `${API_BASE_URL}/api/tailored-resumes/${application.tailored_resume}/download/`,
+      { credentials: 'include' },
+    );
+    if (!response.ok) {
+      alert('Could not download the tailored resume. Try again.');
+      return;
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tailored_resume_${application.posting_company}.docx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="drawer-overlay" onClick={onClose}>
       <aside
@@ -72,9 +91,9 @@ export default function ApplicationDrawer({ application, onClose }) {
         <section className="drawer__section">
           <h4>Resume</h4>
           {application.tailored_resume ? (
-            <a href={`/api/tailored-resumes/${application.tailored_resume}/download/`}>
+            <button onClick={handleDownloadTailoredResume} className="import-button">
               Download tailored resume
-            </a>
+            </button>
           ) : (
             <p className="drawer__muted">No tailored resume yet.</p>
           )}

@@ -5,8 +5,9 @@ from config.test_utils import TwoProfileTestCase
 from accounts.models import Profile
 from job_sources.models import JobSource
 from .models import JobPosting, PostingDecision
-
-
+from unittest.mock import patch
+from applications.models import Application
+from resumes.models import Resume
 class JobPostingDedupeTests(TestCase):
     def setUp(self):
         user = User.objects.create_user(username='alex', password='pw')
@@ -84,3 +85,47 @@ class PostingDecisionTests(TwoProfileTestCase):
 
         self.assertNotIn(self.posting_a.id, new_ids)
         self.assertIn(self.posting_a.id, saved_ids)
+        
+class TailorEndpointTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='alex', password='pw')
+        self.profile = Profile.objects.create(user=user, name='Backend Track')
+        Resume.objects.create(profile=self.profile, full_name='Alex', email='a@x.com')
+        source = JobSource.objects.create(
+            profile=self.profile, company_name='TestCo', type=JobSource.SourceType.GREENHOUSE,
+        )
+        self.posting = JobPosting.objects.create(
+            source=source, company='TestCo', title='Backend Engineer',
+            url='https://x.com/1', dedupe_hash='tl-1',
+        )
+        self.client = self.client_class()
+        self.client.login(username='alex', password='pw')
+
+    @patch('postings.views.tailor_resume')
+    def test_tailor_creates_application_and_advances_status(self, mock_tailor):
+        mock_tailor.return_value = {
+            'content': {'full_name': 'Alex', 'experiences': [], 'projects': []},
+            '_input_payload': {}, '_output_payload': {}, '_latency_ms': 100,
+        }
+        response = self.client.post(f'/api/postings/{self.posting.id}/tailor/')
+        self.assertEqual(response.status_code, 201)
+
+        application = Application.objects.get(posting=self.posting)
+        self.assertEqual(application.status, 'tailoring')
+        self.assertIsNotNone(application.tailored_resume)
+
+    @patch('postings.views.tailor_resume')
+    def test_tailoring_again_does_not_regress_status_from_ready(self, mock_tailor):
+        mock_tailor.return_value = {
+            'content': {'full_name': 'Alex', 'experiences': [], 'projects': []},
+            '_input_payload': {}, '_output_payload': {}, '_latency_ms': 100,
+        }
+        application = Application.objects.create(posting=self.posting, status='ready')
+        self.client.post(f'/api/postings/{self.posting.id}/tailor/')
+        application.refresh_from_db()
+        self.assertEqual(application.status, 'ready')  # unchanged, only advances from discovered
+
+    def test_tailor_without_resume_returns_400(self):
+        Resume.objects.filter(profile=self.profile).delete()
+        response = self.client.post(f'/api/postings/{self.posting.id}/tailor/')
+        self.assertEqual(response.status_code, 400)

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DndContext } from '@dnd-kit/core';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import KanbanColumn from '../features/applications/KanbanColumn';
 import ApplicationDrawer from '../features/applications/ApplicationDrawer';
 import { COLUMNS, COLUMN_DEFAULT_STATUS, columnForStatus } from '../features/applications/statusMapping';
@@ -11,6 +11,10 @@ export default function ApplicationsPage() {
   const updateApplication = useUpdateApplication();
   const [openApp, setOpenApp] = useState(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
   function handleDragEnd(event) {
     const { active, over } = event;
     if (!over) return;
@@ -20,7 +24,7 @@ export default function ApplicationsPage() {
 
     if (targetColumnId === 'offer_rejected') {
       const outcome = window.confirm(
-        'Click OK for Offer, or Rejected for Rejected.',
+        'Click OK for Offer, or Cancel for Rejected.',
       ) ? 'offer' : 'rejected';
       updateApplication.mutate({ id: application.id, status: outcome });
       return;
@@ -34,22 +38,33 @@ export default function ApplicationsPage() {
 
   if (isLoading) return <p className="feed-page__state">Loading applications…</p>;
 
+  const isEmpty = applications.length === 0;
+
   return (
     <>
-      <DndContext onDragEnd={handleDragEnd}>
-        <div className="kanban-board">
-          {COLUMNS.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              applications={applications.filter(
-                (a) => columnForStatus(a.status) === column.id,
-              )}
-              onOpenCard={setOpenApp}
-            />
-          ))}
+      {isEmpty ? (
+        <div className="feed-page__state">
+          <p>No applications yet.</p>
+          <p className="drawer__muted">
+            Applications appear here once you choose to pursue a posting from the Feed.
+          </p>
         </div>
-      </DndContext>
+      ) : (
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div className="kanban-board">
+            {COLUMNS.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                applications={applications.filter(
+                  (a) => columnForStatus(a.status) === column.id,
+                )}
+                onOpenCard={setOpenApp}
+              />
+            ))}
+          </div>
+        </DndContext>
+      )}
 
       {openApp && (
         <ApplicationDrawer
