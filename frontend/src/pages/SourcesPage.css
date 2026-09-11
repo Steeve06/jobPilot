@@ -1,0 +1,127 @@
+.sources-page__tabs {
+    display: flex;
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.sources-page__tabs button {
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+}
+
+.sources-page__tabs button.active {
+    border-bottom-color: var(--color-accent);
+    color: var(--color-accent);
+    font-weight: 600;
+}
+
+.sources-page__toolbar {
+    margin-bottom: var(--space-3);
+}
+
+.sources-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.sources-table th,
+.sources-table td {
+    text-align: left;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.sources-table__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.poll-now-button {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    cursor: pointer;
+    font-size: var(--text-xs);
+}
+
+.poll-now-button:hover {
+    background: var(--color-bg);
+}
+
+.poll-now-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.remove-button {
+    background: none;
+    border: none;
+    color: var(--color-danger);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    padding: var(--space-1) var(--space-2);
+}
+
+.remove-button:hover {
+    text-decoration: underline;
+}
+
+.add-source-modal {
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    width: 420px;
+    margin: auto;
+}
+
+.add-source-modal form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.add-source-modal input,
+.add-source-modal select {
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-2);
+}
+
+.add-source-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.search-profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-width: 500px;
+}
+
+.search-profile-form input,
+.search-profile-form textarea {
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-2);
+}
+
+.search-profile-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
