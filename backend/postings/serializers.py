@@ -13,11 +13,10 @@ class JobPostingSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'source', 'source_company', 'source_type',
             'company', 'title', 'location', 'remote', 'url',
-            'description_normalized', 'posted_at', 'discovered_at',
+            'posted_at', 'discovered_at',
             'fit_score', 'fit_rationale', 'missing_skills', 'decision',
         ]
         read_only_fields = fields
 
     def get_decision(self, obj):
-        # annotated onto the queryset in the view (see Step 2b) to avoid N+1 queries
         return getattr(obj, 'decision_value', None)

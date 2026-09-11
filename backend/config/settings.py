@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'ingestion',
     'scoring',
     'django_celery_beat',
+    'notifications',
 ]
 
 CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/0')
@@ -53,6 +54,14 @@ CELERY_BEAT_SCHEDULE = {
     'score-all-profiles-every-30-min': {
         'task': 'scoring.tasks.score_all_profiles_task',
         'schedule': crontab(minute='*/30'),
+    },
+    'send-daily-digest': {
+        'task': 'notifications.tasks.send_daily_digest_task',
+        'schedule': crontab(hour=8, minute=0),
+    },
+    'stale-application-check': {
+        'task': 'notifications.tasks.stale_application_check_task',
+        'schedule': crontab(hour=9, minute=0),
     },
 }
 
@@ -80,6 +89,16 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 ROOT_URLCONF = 'config.urls'
+
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='jobpilot@localhost')
+
+STALE_APPLICATION_DAYS = 7
 
 TEMPLATES = [
     {

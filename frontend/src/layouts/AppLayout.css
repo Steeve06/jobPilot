@@ -71,6 +71,28 @@
     padding: var(--space-4);
 }
 
+.sidebar-bottom-links {
+    margin-top: var(--space-2);
+}
+
+.notifications-trigger {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notifications-trigger .badge {
+    background: var(--color-accent);
+    color: white;
+    border-radius: 999px;
+    padding: 0 6px;
+}
+
 /* Responsive: collapse sidebar to icon rail below tablet width (full collapse logic refined per-screen later) */
 @media (max-width: 768px) {
     .sidebar {

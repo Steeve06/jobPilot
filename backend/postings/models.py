@@ -27,6 +27,7 @@ class JobPosting(models.Model):
     fit_score = models.PositiveSmallIntegerField(null=True, blank=True)  # 0-100
     fit_rationale = models.TextField(blank=True)
     missing_skills = models.JSONField(default=list, blank=True)
+    digested = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-discovered_at']

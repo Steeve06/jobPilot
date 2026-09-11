@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import ProfileSwitcher from '../components/ProfileSwitcher';
+import NotificationsPanel from '../features/notifications/NotificationsPanel';
+import { useNotifications } from '../features/notifications/useNotifications';
 import './AppLayout.css';
 
 const NAV_ITEMS = [
@@ -11,6 +14,10 @@ const NAV_ITEMS = [
 ];
 
 export default function AppLayout({ currentUser, onLogout }) {
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { data: notifications } = useNotifications();
+  const unreadCount = (notifications ?? []).filter((n) => !n.read).length;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -23,7 +30,6 @@ export default function AppLayout({ currentUser, onLogout }) {
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) => `nav-link${isActive ? ' nav-link--active' : ''}`}
-                  aria-current={undefined}
                 >
                   {item.label}
                 </NavLink>
@@ -31,12 +37,33 @@ export default function AppLayout({ currentUser, onLogout }) {
             ))}
           </ul>
         </nav>
+
+        <div className="sidebar-bottom-links">
+          <div style={{ position: 'relative' }}>
+            <button
+              className="nav-link notifications-trigger"
+              onClick={() => setShowNotifications((s) => !s)}
+            >
+              Notifications {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+            </button>
+            {showNotifications && (
+              <NotificationsPanel onClose={() => setShowNotifications(false)} />
+            )}
+          </div>
+        </div>
+
         <div className="sidebar-footer">
           <span className="user-name">{currentUser?.username}</span>
           <button className="link-button" onClick={onLogout}>Sign out</button>
         </div>
       </aside>
       <main className="app-main">
+        {showNotifications && (
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+            onClick={() => setShowNotifications(false)}
+          />
+        )}
         <Outlet />
       </main>
     </div>
