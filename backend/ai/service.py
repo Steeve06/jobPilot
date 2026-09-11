@@ -25,11 +25,6 @@ def _log_call(purpose, profile, input_payload, output_payload, latency_ms, error
 
 
 def _extract_json_block(text):
-    """
-    Models sometimes wrap JSON in markdown fences or add a sentence of
-    preamble/postamble despite instructions not to. Strip that defensively
-    rather than trusting the model to always return a bare JSON object.
-    """
     text = text.strip()
     fence_match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', text, re.DOTALL)
     if fence_match:
@@ -44,12 +39,7 @@ def _extract_json_block(text):
 
 
 def extract_resume(profile, raw_text):
-    """
-    Given raw text extracted from an uploaded resume file, ask the model
-    to return structured resume data matching our schema. The caller is
-    responsible for presenting this as a *draft* for user review — this
-    function never writes to the Resume model directly (ADR-007).
-    """
+   
     client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
     system_prompt = (
@@ -101,3 +91,92 @@ def extract_resume(profile, raw_text):
         {'raw_text_length': len(raw_text)}, parsed, latency_ms,
     )
     return parsed
+
+def score_posting_fit(profile, resume, posting):
+    """
+    Scores a JobPosting against a Resume: 0-100 fit score, rationale,
+    and missing-skills list (FR8). Returns raw call metadata alongside
+    the parsed result so the caller (scoring.service) can build its own
+    domain-specific ScoringLog without this function needing to know
+    about that model.
+    """
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+
+    resume_summary = _summarize_resume_for_prompt(resume)
+
+    system_prompt = (
+        "You evaluate how well a candidate's resume fits a job posting. "
+        "Respond with ONLY the raw JSON object itself as your entire response. "
+        "Do not include markdown code fences, backticks, explanatory text, or any "
+        "characters before the opening { or after the closing }. "
+        "Return ONLY valid JSON matching exactly this shape:\n"
+        '{"fit_score": 0, "rationale": "one or two sentence explanation", '
+        '"missing_skills": ["skill1", "skill2"]}\n'
+        "fit_score must be an integer 0-100. Base it on overlap between the "
+        "candidate's actual skills/experience and the job's stated requirements. "
+        "Do not reward generic keyword stuffing over genuine relevance. "
+        "Weight scoring calibration as follows: skill/technology overlap alone should "
+        "not exceed a 70 unless seniority level and domain also match. A clear seniority "
+        "mismatch (e.g. an intern posting vs. an experienced candidate, or vice versa) or "
+        "a hard requirement the candidate clearly lacks should cap the score at 50 or below, "
+        "even if technical skills otherwise overlap well."
+    )
+
+    user_content = (
+        f"CANDIDATE RESUME:\n{resume_summary}\n\n"
+        f"JOB POSTING:\nTitle: {posting.title}\nCompany: {posting.company}\n"
+        f"Description: {posting.description_normalized[:4000]}"
+    )
+
+    input_payload = {'resume_summary': resume_summary, 'posting_id': posting.id}
+    start = time.monotonic()
+
+    try:
+        response = client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=500,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.APIError as exc:
+        latency_ms = int((time.monotonic() - start) * 1000)
+        _log_call('scoring', profile, input_payload, {}, latency_ms, error=str(exc))
+        raise AIServiceError(f'AI scoring failed: {exc}') from exc
+
+    latency_ms = int((time.monotonic() - start) * 1000)
+    text_output = response.content[0].text
+    json_candidate = _extract_json_block(text_output)
+
+    try:
+        parsed = json.loads(json_candidate)
+        fit_score = max(0, min(100, int(parsed.get('fit_score', 0))))  # clamp defensively
+    except (json.JSONDecodeError, ValueError, TypeError) as exc:
+        _log_call(
+            'scoring', profile, input_payload, {'raw_output': text_output},
+            latency_ms, error=f'Parse failed: {exc}',
+        )
+        raise AIServiceError('AI returned unparseable scoring output') from exc
+
+    output_payload = {
+        'fit_score': fit_score,
+        'rationale': parsed.get('rationale', ''),
+        'missing_skills': parsed.get('missing_skills', []),
+    }
+    _log_call('scoring', profile, input_payload, output_payload, latency_ms)
+
+    return {
+        'fit_score': fit_score,
+        'rationale': parsed.get('rationale', ''),
+        'missing_skills': parsed.get('missing_skills', []),
+        '_input_payload': input_payload,
+        '_output_payload': output_payload,
+        '_latency_ms': latency_ms,
+    }
+
+
+def _summarize_resume_for_prompt(resume):
+    lines = [f"Skills: {', '.join(resume.skills)}"]
+    for exp in resume.experiences.all():
+        bullets = '; '.join(b.text for b in exp.bullets.all())
+        lines.append(f"{exp.title} at {exp.company}: {bullets}")
+    return '\n'.join(lines)

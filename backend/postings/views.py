@@ -1,17 +1,16 @@
-from rest_framework import viewsets
-from accounts.services import get_active_profile
-from .models import JobPosting, PostingDecision
-from .serializers import JobPostingSerializer
 from datetime import timedelta
-from django.db.models import OuterRef, Subquery
-from rest_framework.decorators import action
 
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, F, OuterRef, Subquery
 from django.utils import timezone
+from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.services import get_active_profile
 from applications.models import Application
+from .models import JobPosting, PostingDecision
+from .serializers import JobPostingSerializer
 
 
 class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
@@ -45,7 +44,11 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(decision_value__isnull=True)
 
         ordering = self.request.query_params.get('ordering', '-discovered_at')
-        if ordering in ('-discovered_at', '-fit_score', 'fit_score'):
+        if ordering == '-fit_score':
+            queryset = queryset.order_by(F('fit_score').desc(nulls_last=True))
+        elif ordering == 'fit_score':
+            queryset = queryset.order_by(F('fit_score').asc(nulls_last=True))
+        elif ordering == '-discovered_at':
             queryset = queryset.order_by(ordering)
 
         return queryset
@@ -61,7 +64,9 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
             posting=posting, profile=active_profile,
             defaults={'decision': decision},
         )
-        return Response({'detail': f'Marked as {decision}'})    
+        return Response({'detail': f'Marked as {decision}'})
+
+
 class DashboardSummaryView(APIView):
     def get(self, request):
         active_profile = get_active_profile(request)

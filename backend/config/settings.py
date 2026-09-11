@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'applications',
     'ai',
     'ingestion',
+    'scoring',
 ]
 
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
@@ -79,7 +80,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
+AI_DAILY_SCORING_CAP = 100
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
