@@ -3,7 +3,7 @@ from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+TIME_ZONE = 'UTC'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
@@ -37,7 +37,24 @@ INSTALLED_APPS = [
     'ai',
     'ingestion',
     'scoring',
+    'django_celery_beat',
 ]
+
+CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_TIMEZONE = TIME_ZONE
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'score-all-profiles-every-30-min': {
+        'task': 'scoring.tasks.score_all_profiles_task',
+        'schedule': crontab(minute='*/30'),
+    },
+}
 
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
 AI_MODEL = 'claude-sonnet-4-5'
@@ -129,7 +146,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+
 
 USE_I18N = True
 
