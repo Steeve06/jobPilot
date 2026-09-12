@@ -1,5 +1,7 @@
 from django.conf import settings
 from datetime import timedelta
+
+from urllib3 import request
 from resumes.models import TailoringSettings
 from django.db.models import Avg, Count, F, OuterRef, Subquery
 from django.utils import timezone
@@ -7,6 +9,9 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from job_sources.models import JobSource
+from ingestion.service import poll_source, PollSourceError
+from scoring.service import score_unscored_postings
 
 from accounts.services import get_active_profile
 from applications.models import Application, StatusEvent
@@ -102,7 +107,28 @@ class JobPostingViewSet(viewsets.ReadOnlyModelViewSet):
         )
         return Response({'detail': f'Marked as {decision}'})
 
+class RunSyncView(APIView):
+    def post(self, request):
+        active_profile = get_active_profile(request)
+        sources = JobSource.objects.filter(profile=active_profile, enabled=True)
 
+        poll_results = []
+        for source in sources:
+            try:
+                result = poll_source(source)
+                poll_results.append({'source': source.company_name, **result})
+            except PollSourceError as exc:
+                poll_results.append({'source': source.company_name, 'error': str(exc)})
+
+        scoring_result = None
+        try:
+            resume = active_profile.resume
+            scoring_result = score_unscored_postings(active_profile, resume)
+        except Resume.DoesNotExist:
+            pass
+
+        return Response({'polled': poll_results, 'scoring': scoring_result})
+    
 class DashboardSummaryView(APIView):
     def get(self, request):
         active_profile = get_active_profile(request)
@@ -117,16 +143,38 @@ class DashboardSummaryView(APIView):
         applications_sent_this_week = applications_qs.filter(
             applied_at__gte=week_ago,
         ).count()
-        avg_fit_score = postings_qs.filter(
-            fit_score__isnull=False,
-        ).aggregate(avg=Avg('fit_score'))['avg']
+        scored_qs = postings_qs.filter(fit_score__isnull=False)
+        avg_fit_score = scored_qs.aggregate(avg=Avg('fit_score'))['avg']
+
+        scored_total = scored_qs.count()
+        fit_distribution = None
+        if scored_total > 0:
+            high = scored_qs.filter(fit_score__gte=80).count()
+            mid = scored_qs.filter(fit_score__gte=50, fit_score__lt=80).count()
+            low = scored_qs.filter(fit_score__lt=50).count()
+            fit_distribution = {
+                'high': round(high / scored_total * 100),
+                'mid': round(mid / scored_total * 100),
+                'low': round(low / scored_total * 100),
+            }
+
+        active_sources_count = job_source_active_count = None
+        from job_sources.models import JobSource
+        active_sources_count = JobSource.objects.filter(profile=active_profile, enabled=True).count()
+        total_sources_count = JobSource.objects.filter(profile=active_profile).count()
 
         by_status = applications_qs.values('status').annotate(count=Count('id'))
         status_counts = {row['status']: row['count'] for row in by_status}
+
+        tailored_count = applications_qs.filter(tailored_resume__isnull=False).count()
 
         return Response({
             'new_postings_this_week': new_postings_this_week,
             'applications_sent_this_week': applications_sent_this_week,
             'avg_fit_score': round(avg_fit_score, 1) if avg_fit_score is not None else None,
             'applications_by_status': status_counts,
+            'fit_distribution': fit_distribution,
+            'active_sources_count': active_sources_count,
+            'total_sources_count': total_sources_count,
+            'tailored_resumes_count': tailored_count,
         })
