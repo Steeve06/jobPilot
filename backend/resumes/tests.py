@@ -192,3 +192,23 @@ class TailoredResumeDownloadScopingTests(TwoProfileTestCase):
     def test_nonexistent_id_returns_404_not_500(self):
         response = self.client.get('/api/tailored-resumes/99999/download/')
         self.assertEqual(response.status_code, 404)
+        
+class TailoringSettingsAPITests(APITestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='alex', password='pw')
+        Profile.objects.create(user=user, name='Backend Track')
+        self.client.login(username='alex', password='pw')
+
+    def test_get_creates_default_settings_on_first_access(self):
+        response = self.client.get('/api/tailoring-settings/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['professional_title'], '')
+        self.assertTrue(response.data['avoid_em_dash'])  # model default
+
+    def test_patch_updates_settings(self):
+        self.client.patch('/api/tailoring-settings/', {
+            'professional_title': 'Senior Engineer', 'max_bullets_per_experience': 4,
+        }, format='json')
+        response = self.client.get('/api/tailoring-settings/')
+        self.assertEqual(response.data['professional_title'], 'Senior Engineer')
+        self.assertEqual(response.data['max_bullets_per_experience'], 4)

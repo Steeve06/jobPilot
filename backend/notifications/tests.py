@@ -31,6 +31,17 @@ class NotificationScopingTests(TwoProfileTestCase):
         self.client.post('/api/notifications/mark_all_read/')
         self.assertTrue(Notification.objects.get(title='Mine').read)
         self.assertFalse(Notification.objects.get(title='Not mine').read)
+    def test_mark_read_only_affects_own_notification(self):
+        mine = Notification.objects.get(title='Mine')
+        response = self.client.post(f'/api/notifications/{mine.id}/mark_read/')
+        self.assertEqual(response.status_code, 200)
+        mine.refresh_from_db()
+        self.assertTrue(mine.read)
+
+    def test_cannot_mark_read_another_profiles_notification(self):
+        theirs = Notification.objects.get(title='Not mine')
+        response = self.client.post(f'/api/notifications/{theirs.id}/mark_read/')
+        self.assertEqual(response.status_code, 404)
 class DailyDigestTaskTests(TestCase):
     def setUp(self):
         user = User.objects.create_user(username='alex', password='pw', email='alex@x.com')

@@ -48,6 +48,9 @@ INSTALLED_APPS = [
 
 SITE_ID = 1
 
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 2 weeks, explicit rather than relying on Django's default
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
@@ -190,6 +193,10 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+import sys
+
+RATELIMIT_ENABLE = 'test' not in sys.argv
 
 
 # Internationalization

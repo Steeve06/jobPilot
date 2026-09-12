@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import KanbanColumn from '../features/applications/KanbanColumn';
 import ApplicationDrawer from '../features/applications/ApplicationDrawer';
+import OfferRejectedDialog from '../features/applications/OfferRejectedDialog';
 import { COLUMNS, COLUMN_DEFAULT_STATUS, columnForStatus } from '../features/applications/statusMapping';
 import { useApplications, useUpdateApplication } from '../features/applications/useApplications';
 import './ApplicationsPage.css';
@@ -10,6 +11,7 @@ export default function ApplicationsPage() {
   const { data: applications, isLoading } = useApplications();
   const updateApplication = useUpdateApplication();
   const [openApp, setOpenApp] = useState(null);
+  const [pendingOfferRejected, setPendingOfferRejected] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -23,10 +25,7 @@ export default function ApplicationsPage() {
     if (columnForStatus(application.status) === targetColumnId) return;
 
     if (targetColumnId === 'offer_rejected') {
-      const outcome = window.confirm(
-        'Click OK for Offer, or Cancel for Rejected.',
-      ) ? 'offer' : 'rejected';
-      updateApplication.mutate({ id: application.id, status: outcome });
+      setPendingOfferRejected(application);
       return;
     }
 
@@ -34,6 +33,11 @@ export default function ApplicationsPage() {
       id: application.id,
       status: COLUMN_DEFAULT_STATUS[targetColumnId],
     });
+  }
+
+  function handleOfferRejectedChoice(outcome) {
+    updateApplication.mutate({ id: pendingOfferRejected.id, status: outcome });
+    setPendingOfferRejected(null);
   }
 
   if (isLoading) return <p className="feed-page__state">Loading applications…</p>;
@@ -70,6 +74,13 @@ export default function ApplicationsPage() {
         <ApplicationDrawer
           application={applications.find((a) => a.id === openApp.id) ?? openApp}
           onClose={() => setOpenApp(null)}
+        />
+      )}
+
+      {pendingOfferRejected && (
+        <OfferRejectedDialog
+          onChoose={handleOfferRejectedChoice}
+          onCancel={() => setPendingOfferRejected(null)}
         />
       )}
     </>

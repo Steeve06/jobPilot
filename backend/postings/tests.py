@@ -146,3 +146,67 @@ class TailorEndpointTests(TestCase):
         Resume.objects.filter(profile=self.profile).delete()
         response = self.client.post(f'/api/postings/{self.posting.id}/tailor/')
         self.assertEqual(response.status_code, 400)
+        
+from datetime import timedelta
+
+from django.utils import timezone
+
+
+class DashboardSummaryTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='alex', password='pw')
+        self.profile = Profile.objects.create(user=user, name='Backend Track')
+        self.client = self.client_class()
+        self.client.login(username='alex', password='pw')
+        self.source = JobSource.objects.create(
+            profile=self.profile, company_name='TestCo', type=JobSource.SourceType.GREENHOUSE,
+        )
+
+    def test_summary_counts_new_postings_this_week(self):
+        JobPosting.objects.create(
+            source=self.source, company='TestCo', title='Engineer',
+            url='https://x.com/1', dedupe_hash='ds-1',
+        )
+        response = self.client.get('/api/dashboard/summary/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['new_postings_this_week'], 1)
+
+    def test_summary_excludes_postings_older_than_a_week(self):
+        posting = JobPosting.objects.create(
+            source=self.source, company='TestCo', title='Old Posting',
+            url='https://x.com/2', dedupe_hash='ds-2',
+        )
+        JobPosting.objects.filter(id=posting.id).update(
+            discovered_at=timezone.now() - timedelta(days=10),
+        )
+        response = self.client.get('/api/dashboard/summary/')
+        self.assertEqual(response.data['new_postings_this_week'], 0)
+
+    def test_avg_fit_score_null_when_nothing_scored(self):
+        response = self.client.get('/api/dashboard/summary/')
+        self.assertIsNone(response.data['avg_fit_score'])
+
+    def test_avg_fit_score_computed_correctly(self):
+        JobPosting.objects.create(
+            source=self.source, company='TestCo', title='A',
+            url='https://x.com/3', dedupe_hash='ds-3', fit_score=80,
+        )
+        JobPosting.objects.create(
+            source=self.source, company='TestCo', title='B',
+            url='https://x.com/4', dedupe_hash='ds-4', fit_score=60,
+        )
+        response = self.client.get('/api/dashboard/summary/')
+        self.assertEqual(response.data['avg_fit_score'], 70.0)
+
+    def test_summary_only_reflects_own_profile_data(self):
+        other_user = User.objects.create_user(username='sam', password='pw')
+        other_profile = Profile.objects.create(user=other_user, name='Other')
+        other_source = JobSource.objects.create(
+            profile=other_profile, company_name='OtherCo', type=JobSource.SourceType.LEVER,
+        )
+        JobPosting.objects.create(
+            source=other_source, company='OtherCo', title='Not mine',
+            url='https://x.com/5', dedupe_hash='ds-5',
+        )
+        response = self.client.get('/api/dashboard/summary/')
+        self.assertEqual(response.data['new_postings_this_week'], 0)

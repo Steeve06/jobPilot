@@ -7,7 +7,9 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import Profile
 from .serializers import CurrentUserSerializer
-
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 class SignupView(APIView):
     permission_classes = [AllowAny]
 
@@ -45,7 +47,7 @@ class CsrfCookieView(APIView):
         get_token(request)  # forces the cookie to be set
         return Response({'detail': 'CSRF cookie set'})
 
-
+@method_decorator(ratelimit(key='ip', rate='10/m', method='POST', block=True), name='post')
 class LoginView(APIView):
     permission_classes = [AllowAny]
 

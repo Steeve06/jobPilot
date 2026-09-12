@@ -31,7 +31,7 @@ export default function ResumePreview({ resume }) {
             <div key={exp.id ?? i} className="resume-preview__entry">
               <div className="resume-preview__entry-header">
                 <strong>{exp.title || 'Title'}</strong>
-                <span>{exp.start_date} – {exp.end_date || 'Present'}</span>
+                <span>{exp.start_date || 'Date TBD'} – {exp.end_date || 'Present'}</span>
               </div>
               <p className="resume-preview__entry-subtitle">{exp.company}</p>
               <ul>
