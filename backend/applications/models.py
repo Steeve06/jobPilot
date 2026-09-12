@@ -2,7 +2,6 @@ from django.db import models
 
 from postings.models import JobPosting
 
-
 class Application(models.Model):
     class Status(models.TextChoices):
         DISCOVERED = 'discovered', 'Discovered'
@@ -84,3 +83,17 @@ class Note(models.Model):
 
     def __str__(self):
         return self.text[:50]
+    
+class SubmissionLog(models.Model):
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='submission_logs')
+    success = models.BooleanField()
+    request_payload = models.JSONField(default=dict)
+    response_payload = models.JSONField(default=dict)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'SubmissionLog for {self.application} ({"success" if self.success else "failed"})'

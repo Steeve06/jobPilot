@@ -1,0 +1,77 @@
+.submit-confirm-dialog {
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    width: 420px;
+    max-width: 90vw;
+    box-shadow: var(--shadow-md);
+    margin: auto;
+}
+
+.submit-confirm-dialog__body {
+    padding: var(--space-4);
+}
+
+.submit-confirm-dialog__body .drawer__muted {
+    margin-bottom: var(--space-3);
+    line-height: 1.5;
+}
+
+.submit-confirm-dialog__fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.submit-confirm-dialog__fields input {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
+}
+
+.submit-confirm-dialog__fields input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+.submit-confirm-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--color-border);
+}
+
+.submit-confirm-dialog__cancel {
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+}
+
+.submit-confirm-dialog__cancel:hover {
+    background: var(--color-bg);
+}
+
+.submit-confirm-dialog__confirm {
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 500;
+}
+
+.submit-confirm-dialog__confirm:hover {
+    background: var(--color-accent-hover);
+}
+
+.submit-confirm-dialog__confirm:disabled,
+.submit-confirm-dialog__cancel:disabled {
+    opacity: 0.5;
+    cursor: default;
+}

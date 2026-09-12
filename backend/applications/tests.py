@@ -1,7 +1,10 @@
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from unittest.mock import Mock, patch
 
+from ingestion.adapters.submission_base import SubmissionResult
+from .models import SubmissionLog
 from accounts.models import Profile
 from job_sources.models import JobSource
 from postings.models import JobPosting
@@ -164,5 +167,86 @@ class NoteScopingTests(TwoProfileTestCase):
     def test_empty_note_text_rejected(self):
         response = self.client.post(
             f'/api/applications/{self.app_a.id}/notes/', {'text': '   '}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        
+class SubmitEndpointTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(username='alex', password='pw')
+        self.profile = Profile.objects.create(user=user, name='Backend Track')
+        self.source = JobSource.objects.create(
+            profile=self.profile, company_name='TestCo', type=JobSource.SourceType.GREENHOUSE,
+            config={'board_slug': 'testco'}, is_auto_submit_eligible=True,
+        )
+        self.posting = JobPosting.objects.create(
+            source=self.source, company='TestCo', title='Backend Engineer',
+            url='https://x.com/1', dedupe_hash='sub-1', external_id='123',
+        )
+        self.application = Application.objects.create(posting=self.posting)
+        self.client = self.client_class()
+        self.client.login(username='alex', password='pw')
+
+    def test_submit_without_confirm_returns_400(self):
+        response = self.client.post(
+            f'/api/applications/{self.application.id}/submit/', {}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(SubmissionLog.objects.exists())
+
+    def test_submit_on_ineligible_source_returns_400(self):
+        self.source.is_auto_submit_eligible = False
+        self.source.save()
+        response = self.client.post(
+            f'/api/applications/{self.application.id}/submit/',
+            {'confirm': True}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(SubmissionLog.objects.exists())
+
+    @patch('applications.views.get_submission_adapter')
+    def test_successful_submit_advances_status_and_sets_timestamp(self, mock_get_adapter):
+        mock_adapter = Mock()
+        mock_adapter.submit.return_value = SubmissionResult(success=True, response_payload={'status_code': 200})
+        mock_get_adapter.return_value = mock_adapter
+
+        response = self.client.post(
+            f'/api/applications/{self.application.id}/submit/',
+            {'confirm': True, 'answers': {'first_name': 'A', 'email': 'a@x.com'}}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.status, 'applied')
+        self.assertIsNotNone(self.application.applied_at)
+        self.assertEqual(self.application.submission_method, 'api')
+        self.assertTrue(SubmissionLog.objects.get(application=self.application).success)
+
+    @patch('applications.views.get_submission_adapter')
+    def test_failed_submit_does_not_change_status_or_timestamp(self, mock_get_adapter):
+        mock_adapter = Mock()
+        mock_adapter.submit.return_value = SubmissionResult(
+            success=False, response_payload={'status_code': 403}, error_message='Forbidden',
+        )
+        mock_get_adapter.return_value = mock_adapter
+
+        response = self.client.post(
+            f'/api/applications/{self.application.id}/submit/',
+            {'confirm': True, 'answers': {}}, format='json',
+        )
+        self.assertEqual(response.status_code, 502)
+
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.status, 'discovered')  # unchanged
+        self.assertIsNone(self.application.applied_at)
+        log = SubmissionLog.objects.get(application=self.application)
+        self.assertFalse(log.success)
+        self.assertEqual(log.error_message, 'Forbidden')
+
+    def test_no_adapter_for_source_type_returns_400(self):
+        self.source.type = 'remoteok'  # no submission adapter registered for this type
+        self.source.save()
+        response = self.client.post(
+            f'/api/applications/{self.application.id}/submit/',
+            {'confirm': True}, format='json',
         )
         self.assertEqual(response.status_code, 400)

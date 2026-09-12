@@ -20,6 +20,18 @@ export function useUpdateApplication() {
   });
 }
 
+export function useSubmitApplication() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, answers }) =>
+      apiRequest(`/api/applications/${id}/submit/`, {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true, answers }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['applications'] }),
+  });
+}
+
 export function useAddNote() {
   const queryClient = useQueryClient();
   return useMutation({

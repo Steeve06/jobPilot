@@ -8,6 +8,7 @@ from job_sources.models import JobSource
 from postings.models import JobPosting
 from .adapters.base import compute_dedupe_hash
 from .adapters.greenhouse import GreenhouseAdapter
+from .adapters.greenhouse_submission import GreenhouseSubmissionAdapter
 from .adapters.lever import LeverAdapter
 from .service import poll_source, PollSourceError
 
@@ -29,40 +30,42 @@ class DedupeHashTests(TestCase):
         self.assertNotEqual(h1, h2)
 
 
-class GreenhouseAdapterTests(TestCase):
+class GreenhouseSubmissionAdapterTests(TestCase):
     def setUp(self):
-        user = User.objects.create_user(username='alex', password='pw')
+        user = User.objects.create_user(username='sam', password='pw')
         profile = Profile.objects.create(user=user, name='Backend Track')
         self.source = JobSource.objects.create(
             profile=profile, company_name='TestCo', type=JobSource.SourceType.GREENHOUSE,
             config={'board_slug': 'testco'},
         )
+        posting = JobPosting.objects.create(
+            source=self.source, company='TestCo', title='Engineer',
+            url='https://x.com/1', dedupe_hash='gsa-1', external_id='999',
+        )
+        from applications.models import Application
+        self.application = Application.objects.create(posting=posting)
 
-    @patch('ingestion.adapters.greenhouse.requests.get')
-    def test_normalizes_response_correctly(self, mock_get):
-        mock_get.return_value = Mock(status_code=200, json=lambda: {
-            'jobs': [{
-                'id': 12345,
-                'title': 'Backend Engineer',
-                'location': {'name': 'Remote - US'},
-                'content': '<p>Great <b>job</b> description</p>',
-                'absolute_url': 'https://testco.com/jobs/12345',
-            }],
-        })
-        mock_get.return_value.raise_for_status = Mock()
+    @patch('ingestion.adapters.greenhouse_submission.requests.post')
+    def test_successful_submission(self, mock_post):
+        mock_post.return_value = Mock(status_code=200, text='OK')
+        result = GreenhouseSubmissionAdapter().submit(
+            self.application, {'first_name': 'A', 'last_name': 'B', 'email': 'a@x.com'},
+        )
+        self.assertTrue(result.success)
 
-        postings = GreenhouseAdapter().fetch_postings(self.source)
+    @patch('ingestion.adapters.greenhouse_submission.requests.post')
+    def test_failed_submission_returns_clear_error(self, mock_post):
+        mock_post.return_value = Mock(status_code=404, text='Not found')
+        result = GreenhouseSubmissionAdapter().submit(self.application, {})
+        self.assertFalse(result.success)
+        self.assertIn('404', result.error_message)
 
-        self.assertEqual(len(postings), 1)
-        self.assertEqual(postings[0].title, 'Backend Engineer')
-        self.assertEqual(postings[0].company, 'TestCo')
-        self.assertTrue(postings[0].remote)
-        self.assertEqual(postings[0].description_normalized, 'Great job description')
-
-    def test_missing_board_slug_raises_value_error(self):
+    def test_missing_board_slug_returns_error_without_http_call(self):
         self.source.config = {}
-        with self.assertRaises(ValueError):
-            GreenhouseAdapter().fetch_postings(self.source)
+        self.source.save()
+        result = GreenhouseSubmissionAdapter().submit(self.application, {})
+        self.assertFalse(result.success)
+        self.assertIn('board slug', result.error_message.lower())
 
 
 class LeverAdapterTests(TestCase):

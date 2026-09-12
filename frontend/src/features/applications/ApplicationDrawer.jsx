@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useUpdateApplication, useAddNote } from './useApplications';
-
+import { useUpdateApplication, useAddNote, useSubmitApplication } from './useApplications';
+import SubmitConfirmDialog from './SubmitConfirmDialog';
 import './ApplicationDrawer.css';
 
 const ALL_STATUSES = [
@@ -11,8 +11,10 @@ const ALL_STATUSES = [
 export default function ApplicationDrawer({ application, onClose }) {
   const updateApplication = useUpdateApplication();
   const addNote = useAddNote();
+  const submitApplication = useSubmitApplication();
   const [noteText, setNoteText] = useState('');
   const [nextActionDate, setNextActionDate] = useState(application.next_action_date ?? '');
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   function handleStatusChange(e) {
     updateApplication.mutate({ id: application.id, status: e.target.value });
@@ -50,6 +52,13 @@ export default function ApplicationDrawer({ application, onClose }) {
     a.download = `tailored_resume_${application.posting_company}.docx`;
     a.click();
     window.URL.revokeObjectURL(url);
+  }
+
+  function handleConfirmSubmit(answers) {
+    submitApplication.mutate(
+      { id: application.id, answers },
+      { onSuccess: () => setShowSubmitConfirm(false) },
+    );
   }
 
   return (
@@ -100,6 +109,24 @@ export default function ApplicationDrawer({ application, onClose }) {
         </section>
 
         <section className="drawer__section">
+          <h4>Submission</h4>
+          {application.is_auto_submit_eligible ? (
+            <button onClick={() => setShowSubmitConfirm(true)} className="save-button">
+              Submit Application
+            </button>
+          ) : (
+            <a
+              href={application.posting_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="import-button"
+            >
+              Open Posting ↗
+            </a>
+          )}
+        </section>
+
+        <section className="drawer__section">
           <h4>Timeline</h4>
           <ol className="drawer__timeline">
             {application.status_events.map((event) => (
@@ -135,6 +162,16 @@ export default function ApplicationDrawer({ application, onClose }) {
           </form>
         </section>
       </aside>
+
+      {showSubmitConfirm && (
+        <SubmitConfirmDialog
+          application={application}
+          onConfirm={handleConfirmSubmit}
+          onCancel={() => setShowSubmitConfirm(false)}
+          isSubmitting={submitApplication.isPending}
+          error={submitApplication.error?.message}
+        />
+      )}
     </div>
   );
 }

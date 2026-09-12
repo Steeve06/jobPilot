@@ -22,14 +22,16 @@ class ApplicationSerializer(serializers.ModelSerializer):
     notes = NoteSerializer(many=True, read_only=True)
     posting_title = serializers.CharField(source='posting.title', read_only=True)
     posting_company = serializers.CharField(source='posting.company', read_only=True)
+    posting_url = serializers.CharField(source='posting.url', read_only=True)
+    is_auto_submit_eligible = serializers.BooleanField(source='posting.source.is_auto_submit_eligible', read_only=True)
 
     class Meta:
         model = Application
         fields = [
-            'id', 'posting', 'posting_title', 'posting_company',
-            'tailored_resume', 'status', 'applied_at', 'submission_method',
-            'next_action_date', 'contact_email', 'status_events', 'notes',
-            'created_at', 'updated_at',
+            'id', 'posting', 'posting_title', 'posting_company', 'posting_url',
+            'is_auto_submit_eligible', 'tailored_resume', 'status', 'applied_at',
+            'submission_method', 'next_action_date', 'contact_email',
+            'status_events', 'notes', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
