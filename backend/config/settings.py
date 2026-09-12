@@ -56,8 +56,8 @@ AUTHENTICATION_BACKENDS = [
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'APP': {
-            'client_id': config('GOOGLE_OAUTH_CLIENT_ID'),
-            'secret': config('GOOGLE_OAUTH_CLIENT_SECRET'),
+            'client_id': config('GOOGLE_OAUTH_CLIENT_ID', default=''),
+            'secret': config('GOOGLE_OAUTH_CLIENT_SECRET', default=''),
             'key': '',
         },
         'SCOPE': ['profile', 'email'],
