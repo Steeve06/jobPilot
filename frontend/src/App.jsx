@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './layouts/AppLayout';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import FeedPage from './pages/FeedPage';
 import ApplicationsPage from './pages/ApplicationsPage';
 import ResumePage from './pages/ResumePage';
@@ -21,19 +22,19 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [checkedAuth, setCheckedAuth] = useState(false);
 
-  useEffect(() => {
+  if (!checkedAuth) {
     getCurrentUser()
       .then(setCurrentUser)
       .catch(() => setCurrentUser(null))
       .finally(() => setCheckedAuth(true));
-  }, []);
+  }
 
   async function handleLogout() {
     await logout();
     setCurrentUser(null);
   }
 
-  if (!checkedAuth) return null; // brief flash-free initial load
+  if (!checkedAuth) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -45,6 +46,14 @@ export default function App() {
               currentUser
                 ? <Navigate to="/" replace />
                 : <LoginPage onLoggedIn={() => getCurrentUser().then(setCurrentUser)} />
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              currentUser
+                ? <Navigate to="/" replace />
+                : <SignupPage onLoggedIn={() => getCurrentUser().then(setCurrentUser)} />
             }
           />
           <Route element={<ProtectedShell currentUser={currentUser} onLogout={handleLogout} />}>

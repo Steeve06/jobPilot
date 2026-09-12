@@ -30,6 +30,13 @@ export async function ensureCsrfCookie() {
   return apiRequest('/api/auth/csrf/');
 }
 
+export async function signup(username, password) {
+  return apiRequest('/api/auth/signup/', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+}
+
 export async function login(username, password) {
   return apiRequest('/api/auth/login/', {
     method: 'POST',
