@@ -22,7 +22,10 @@ def poll_source(job_source):
     once polling is automated (Sprint 14) and one bad source shouldn't
     crash the whole task queue.
     """
-    adapter = get_adapter(job_source.type)
+    try:
+        adapter = get_adapter(job_source.type)
+    except ValueError as exc:
+        raise PollSourceError(f'{job_source.company_name}: {exc}') from exc
 
     try:
         normalized_postings = adapter.fetch_postings(job_source)
@@ -37,6 +40,7 @@ def poll_source(job_source):
         ) from exc
     except ValueError as exc:
         raise PollSourceError(f'{job_source.company_name} ({job_source.type}): {exc}') from exc
+
 
     created_count = 0
     skipped_count = 0

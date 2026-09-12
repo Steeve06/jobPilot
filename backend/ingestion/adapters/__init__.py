@@ -1,10 +1,16 @@
 from job_sources.models import JobSource
+from .ashby import AshbyAdapter
 from .greenhouse import GreenhouseAdapter
 from .lever import LeverAdapter
+from .remoteok import RemoteOkAdapter
+from .rss import RssAdapter
 
 ADAPTER_REGISTRY = {
     JobSource.SourceType.GREENHOUSE: GreenhouseAdapter,
     JobSource.SourceType.LEVER: LeverAdapter,
+    JobSource.SourceType.ASHBY: AshbyAdapter,
+    JobSource.SourceType.REMOTEOK: RemoteOkAdapter,
+    JobSource.SourceType.RSS: RssAdapter,
 }
 
 

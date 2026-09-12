@@ -2,24 +2,37 @@ import { useState } from 'react';
 import { useCreateJobSource } from './useJobSources';
 
 const SUPPORTED_TYPES = [
-  { value: 'greenhouse', label: 'Greenhouse' },
-  { value: 'lever', label: 'Lever' },
+  { value: 'greenhouse', label: 'Greenhouse', configField: 'board_slug', configLabel: 'Board slug' },
+  { value: 'lever', label: 'Lever', configField: 'board_slug', configLabel: 'Board slug' },
+  { value: 'ashby', label: 'Ashby', configField: 'board_slug', configLabel: 'Board name' },
+  { value: 'remoteok', label: 'RemoteOK', configField: 'keyword', configLabel: 'Keyword filter (optional)' },
+  { value: 'rss', label: 'RSS Feed', configField: 'feed_url', configLabel: 'Feed URL' },
 ];
 
 export default function AddSourceModal({ onClose }) {
   const createSource = useCreateJobSource();
   const [companyName, setCompanyName] = useState('');
   const [type, setType] = useState('greenhouse');
-  const [boardSlug, setBoardSlug] = useState('');
+  const [configValue, setConfigValue] = useState('');
   const [pollInterval, setPollInterval] = useState(120);
+
+  const selectedType = SUPPORTED_TYPES.find((option) => option.value === type) ?? SUPPORTED_TYPES[0];
 
   function handleSubmit(e) {
     e.preventDefault();
+
+    const config = {};
+    if (configValue.trim()) {
+      config[selectedType.configField] = configValue.trim();
+    }
+
     createSource.mutate(
       {
-        company_name: companyName, type,
-        config: { board_slug: boardSlug },
-        poll_interval_minutes: pollInterval, enabled: true,
+        company_name: companyName,
+        type,
+        config,
+        poll_interval_minutes: pollInterval,
+        enabled: true,
       },
       { onSuccess: onClose },
     );
@@ -38,8 +51,14 @@ export default function AddSourceModal({ onClose }) {
             {SUPPORTED_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
 
-          <label>Board URL / Slug</label>
-          <input value={boardSlug} onChange={(e) => setBoardSlug(e.target.value)} placeholder="e.g. stripe" required />
+          <label>{selectedType.configLabel}</label>
+          <input
+            value={configValue}
+            onChange={(e) => setConfigValue(e.target.value)}
+            placeholder={type === 'remoteok' ? 'e.g. frontend' : 'e.g. stripe'}
+            required={type !== 'remoteok'}
+          />
+
           <label>Poll Interval (minutes)</label>
           <input
             type="number"
@@ -49,10 +68,7 @@ export default function AddSourceModal({ onClose }) {
             min="1"
             required
           />
-          <p className="drawer__muted">
-            Ashby, RemoteOK, and RSS adapters aren't built yet (coming in a future sprint).
-          </p>
-
+          
           {createSource.isError && <p className="resume-page__error">{createSource.error.message}</p>}
 
           <div className="add-source-modal__actions">
