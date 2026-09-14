@@ -12,6 +12,7 @@ class Profile(models.Model):
     is_default = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    onboarded = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-is_default', 'name']

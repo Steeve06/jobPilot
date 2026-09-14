@@ -5,8 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+
+from .services import get_active_profile
 from .models import Profile
-from .serializers import CurrentUserSerializer
+from .serializers import CurrentUserSerializer, ProfileSerializer
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 @method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
@@ -66,7 +68,13 @@ class LogoutView(APIView):
         logout(request)
         return Response({'detail': 'Logged out'})
 
-
+class CompleteOnboardingView(APIView):
+    def post(self, request):
+        profile = get_active_profile(request)
+        profile.onboarded = True
+        profile.save(update_fields=['onboarded'])
+        return Response({'detail': 'onboarded'})
+    
 class CurrentUserView(APIView):
     def get(self, request):
         profiles = Profile.objects.filter(user=request.user)
@@ -75,3 +83,21 @@ class CurrentUserView(APIView):
             'profiles': profiles,
         }).data
         return Response(data)
+    
+class UpdateProfileView(APIView):
+    def patch(self, request):
+        profile = get_active_profile(request)
+        name = request.data.get('name', '').strip()
+        if not name:
+            return Response({'detail': 'name is required'}, status=400)
+        profile.name = name
+        profile.save(update_fields=['name'])
+        return Response(ProfileSerializer(profile).data)
+    
+class CreateProfileView(APIView):
+    def post(self, request):
+        name = request.data.get('name', '').strip()
+        if not name:
+            return Response({'detail': 'name is required'}, status=400)
+        profile = Profile.objects.create(user=request.user, name=name, is_default=False)
+        return Response(ProfileSerializer(profile).data, status=201)

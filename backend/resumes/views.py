@@ -138,3 +138,16 @@ class TailoredResumeAcceptView(APIView):
             application.save(update_fields=['tailored_resume'])
 
         return Response({'application_id': application.id, 'application_status': application.status})
+    
+class TailoredResumeDetailView(APIView):
+    def patch(self, request, pk):
+        active_profile = get_active_profile(request)
+        tailored_resume = get_object_or_404(
+            TailoredResume.objects.filter(resume__profile=active_profile), pk=pk,
+        )
+        content = request.data.get('content')
+        if not isinstance(content, dict):
+            return Response({'detail': 'content must be an object'}, status=400)
+        tailored_resume.content = content
+        tailored_resume.save(update_fields=['content'])
+        return Response({'content': tailored_resume.content})

@@ -106,3 +106,62 @@ class GetActiveProfileTests(TestCase):
 
         self.assertEqual(profile.id, existing.id)
         self.assertEqual(Profile.objects.filter(user=user).count(), 1)
+        
+class GetActiveProfileTests(TestCase):
+    def test_auto_creates_profile_for_user_with_none(self):
+        user = User.objects.create_user(username='newbie', password='pw')
+        self.assertFalse(Profile.objects.filter(user=user).exists())
+
+        request = Mock(user=user)
+        request.headers = {}  # simulates a real request with no X-Active-Profile header
+        profile = get_active_profile(request)
+
+        self.assertEqual(profile.name, 'Default')
+        self.assertTrue(profile.is_default)
+        self.assertTrue(Profile.objects.filter(user=user).exists())
+
+    def test_returns_existing_profile_without_creating_duplicate(self):
+        user = User.objects.create_user(username='existing2', password='pw')
+        existing = Profile.objects.create(user=user, name='My Custom Profile')
+
+        request = Mock(user=user)
+        request.headers = {}
+        profile = get_active_profile(request)
+
+        self.assertEqual(profile.id, existing.id)
+        self.assertEqual(Profile.objects.filter(user=user).count(), 1)
+        
+    def test_header_selects_specific_profile_when_valid(self):
+        user = User.objects.create_user(username='multi', password='pw')
+        profile_a = Profile.objects.create(user=user, name='Backend Track', is_default=True)
+        profile_b = Profile.objects.create(user=user, name='Frontend Track')
+
+        request = Mock(user=user)
+        request.headers = {'X-Active-Profile': str(profile_b.id)}
+        profile = get_active_profile(request)
+
+        self.assertEqual(profile.id, profile_b.id)
+
+    def test_header_naming_another_users_profile_falls_back_to_own_default(self):
+        user = User.objects.create_user(username='alice', password='pw')
+        Profile.objects.create(user=user, name='Alice Default', is_default=True)
+
+        other_user = User.objects.create_user(username='bob', password='pw')
+        bobs_profile = Profile.objects.create(user=other_user, name='Bobs Profile', is_default=True)
+
+        request = Mock(user=user)
+        request.headers = {'X-Active-Profile': str(bobs_profile.id)}
+        profile = get_active_profile(request)
+
+        self.assertEqual(profile.user, user)
+        self.assertNotEqual(profile.id, bobs_profile.id)
+
+    def test_invalid_header_value_falls_back_gracefully(self):
+        user = User.objects.create_user(username='charlie', password='pw')
+        Profile.objects.create(user=user, name='Charlie Default', is_default=True)
+
+        request = Mock(user=user)
+        request.headers = {'X-Active-Profile': 'not-a-number'}
+        profile = get_active_profile(request)
+
+        self.assertEqual(profile.name, 'Charlie Default')

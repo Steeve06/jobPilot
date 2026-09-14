@@ -6,7 +6,7 @@ from .models import Profile
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['id', 'name', 'is_default']
+        fields = ['id', 'name', 'is_default', 'onboarded']
 
 
 class CurrentUserSerializer(serializers.Serializer):
